@@ -1,0 +1,3 @@
+repository='external project URL'
+module='http://mirror.metrocast.net/apache/zookeeper/zookeeper-3.5.1-alpha/zookeeper-3.5.1-alpha.tar.gz'
+tag='MD5=d85f9751724d3f20f792803b61c4db24'
