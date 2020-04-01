@@ -4,6 +4,10 @@ syntax: glob
 *~
 debug/*
 release/*
+deps/*
+.idea/*
+cmake-build-debug/*
+.git-credentials
 profile/*
 dist/graphlabapi*
 doc/doxygen/*
