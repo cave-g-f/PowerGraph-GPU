@@ -1,0 +1,2 @@
+project(sssp_graph_algo)
+add_graphlab_executable(sssp_graph_algo sssp.cpp)
