@@ -2,7 +2,14 @@ project(GraphLab)
 
 # We require the most recent version of cmake and automatically
 # install the correct version when using the cmake lists
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.9)
+
+set(CMAKE_CXX_STANDARD 14)
+
+find_package(CUDA)
+
+## graph_algo
+add_subdirectory(Graph_Algo)
 
 # Libraries linked via full path no longer produce linker search paths.
 cmake_policy(SET CMP0003 NEW)
@@ -39,6 +46,7 @@ include_directories(
 link_directories(${GraphLab_SOURCE_DIR}/deps/local/lib)
 
 # add_definitions(-DUSE_DYNAMIC_LOCAL_GRAPH)
+add_definitions(-DGRAPH_ALGO)
 
 if(NO_OPENMP)
   set(OPENMP_C_FLAGS "")
@@ -68,7 +76,7 @@ endif()
 
 
 # Shared compiler flags used by all builds (debug, profile, release)
-set(COMPILER_FLAGS "-Wall -g ${CPP11_FLAGS} ${OPENMP_C_FLAGS}" CACHE STRING "common compiler options")
+set(COMPILER_FLAGS "-w -g ${CPP11_FLAGS} ${OPENMP_C_FLAGS}" CACHE STRING "common compiler options")
 
 # Disable address space randomization for OSX lion and above
 if (APPLE)
@@ -726,8 +734,8 @@ endmacro(add_extension_executable)
 
 
 
-add_custom_target(external_dependencies)
-requires_core_deps(external_dependencies)
+#add_custom_target(external_dependencies)
+#requires_core_deps(external_dependencies)
 
 # add_jni_library =============================================================
 # If jni was found then create a jni library.  Otherwise generate a warning
