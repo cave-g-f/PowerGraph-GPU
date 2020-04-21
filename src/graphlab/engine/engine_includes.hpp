@@ -28,6 +28,12 @@
 #include <graphlab/engine/async_consistent_engine.hpp>
 #include <graphlab/engine/omni_engine.hpp>
 
+#ifdef GRAPH_ALGO
+
+#include <graphlab/engine/synchronous_engine_algo.hpp>
+
+#endif
+
 #include <graphlab/engine/execution_status.hpp>
 
 //#include <graphlab/engine/asynchronous_engine.hpp>

@@ -1,57 +1,13 @@
 //created by cave-g-f 2020/4/2
 
-#include <vector>
-#include <string>
-#include <fstream>
-
-#include <graphlab.hpp>
+#include "sssp.h"
+#include "sssp_to_gas.h"
 
 #ifdef GRAPH_ALGO
+
 #include "../../Graph_Algo/srv/UtilClient.h"
+
 #endif
-
-/**
- * \brief The type used to measure distances in the graph.
- */
-typedef float distance_type;
-
-/**
- * \brief The current distance of the vertex.
- */
-struct vertex_data : graphlab::IS_POD_TYPE {
-    distance_type dist;
-
-    vertex_data(distance_type dist = std::numeric_limits<distance_type>::max()) :
-            dist(dist) {}
-}; // end of vertex data
-
-
-
-/**
- * \brief The distance associated with the edge.
- */
-struct edge_data : graphlab::IS_POD_TYPE {
-    distance_type dist;
-
-    edge_data(distance_type dist = 1) : dist(dist) {}
-}; // end of edge data
-
-
-/**
- * \brief The graph type encodes the distances between vertices and
- * edges
- */
-typedef graphlab::distributed_graph<vertex_data, edge_data> graph_type;
-
-
-/**
- * \brief Get the other vertex in the edge.
- */
-inline graph_type::vertex_type
-get_other_vertex(const graph_type::edge_type &edge,
-                 const graph_type::vertex_type &vertex) {
-    return vertex.id() == edge.source().id() ? edge.target() : edge.source();
-}
 
 
 /**
@@ -59,21 +15,6 @@ get_other_vertex(const graph_type::edge_type &edge,
  */
 bool DIRECTED_SSSP = true;
 
-
-/**
- * \brief This class is used as the gather type.
- */
-struct min_distance_type : graphlab::IS_POD_TYPE {
-    distance_type dist;
-
-    min_distance_type(distance_type dist =
-    std::numeric_limits<distance_type>::max()) : dist(dist) {}
-
-    min_distance_type &operator+=(const min_distance_type &other) {
-        dist = std::min(dist, other.dist);
-        return *this;
-    }
-};
 
 bool line_parser(graph_type &graph, const std::string &filename, const std::string &textline) {
     std::stringstream strm(textline);
@@ -87,84 +28,6 @@ bool line_parser(graph_type &graph, const std::string &filename, const std::stri
     graph.add_edge(src_vid, dest_vid);
     return true;
 }
-
-
-/**
- * \brief The single source shortest path vertex program.
- */
-class sssp :
-        public graphlab::ivertex_program<graph_type,
-                graphlab::empty,
-                min_distance_type>,
-        public graphlab::IS_POD_TYPE {
-    distance_type min_dist;
-    bool changed;
-public:
-
-
-    void init(icontext_type &context, const vertex_type &vertex,
-              const min_distance_type &msg) {
-        min_dist = msg.dist;
-    }
-
-    /**
-     * \brief We use the messaging model to compute the SSSP update
-     */
-    edge_dir_type gather_edges(icontext_type &context,
-                               const vertex_type &vertex) const {
-        return graphlab::NO_EDGES;
-    }; // end of gather_edges
-
-
-    // /**
-    //  * \brief Collect the distance to the neighbor
-    //  */
-    // min_distance_type gather(icontext_type& context, const vertex_type& vertex,
-    //                          edge_type& edge) const {
-    //   return min_distance_type(edge.data() +
-    //                            get_other_vertex(edge, vertex).data());
-    // } // end of gather function
-
-
-    /**
-     * \brief If the distance is smaller then update
-     */
-    void apply(icontext_type &context, vertex_type &vertex,
-               const graphlab::empty &empty) {
-        changed = false;
-        if (vertex.data().dist > min_dist) {
-            changed = true;
-            vertex.data().dist = min_dist;
-        }
-    }
-
-    /**
-     * \brief Determine if SSSP should run on all edges or just in edges
-     */
-    edge_dir_type scatter_edges(icontext_type &context,
-                                const vertex_type &vertex) const {
-        if (changed)
-            return graphlab::OUT_EDGES;
-        else return graphlab::NO_EDGES;
-    }; // end of scatter_edges
-
-    /**
-     * \brief The scatter function just signal adjacent pages
-     */
-    void scatter(icontext_type &context, const vertex_type &vertex,
-                 edge_type &edge) const {
-        const vertex_type other = get_other_vertex(edge, vertex);
-        distance_type newd = vertex.data().dist + edge.data().dist;
-        if (other.data().dist > newd) {
-            const min_distance_type msg(newd);
-            context.signal(other, msg);
-        }
-    } // end of scatter
-
-}; // end of shortest path vertex program
-
-
-
 
 /**
  * \brief We want to save the final graph so we define a write which will be
@@ -181,6 +44,7 @@ struct shortest_path_writer {
 }; // end of shortest_path_writer
 
 
+
 int main(int argc, char **argv) {
     // Initialize control plain using mpi
     graphlab::mpi_tools::init(argc, argv);
@@ -191,34 +55,21 @@ int main(int argc, char **argv) {
     graphlab::command_line_options
             clopts("Single Source Shortest Path Algorithm.");
     std::string graph_dir;
-    std::string format = "adj";
-    std::string exec_type = "synchronous";
-    size_t powerlaw = 0;
-    std::vector<unsigned int> sources;
-    bool max_degree_source = false;
+    std::string exec_type = "algo";
+
+    int source;
+
     clopts.attach_option("graph", graph_dir,
                          "The graph file.  If none is provided "
                          "then a toy graph will be created");
     clopts.add_positional("graph");
-    clopts.attach_option("format", format,
-                         "graph format");
-    clopts.attach_option("source", sources,
+    clopts.attach_option("source", source,
                          "The source vertices");
-    clopts.attach_option("max_degree_source", max_degree_source,
-                         "Add the vertex with maximum degree as a source");
-
     clopts.add_positional("source");
-
-    clopts.attach_option("directed", DIRECTED_SSSP,
-                         "Treat edges as directed.");
-
     clopts.attach_option("engine", exec_type,
-                         "The engine type synchronous or asynchronous");
+                         "exec engine");
 
-
-    clopts.attach_option("powerlaw", powerlaw,
-                         "Generate a synthetic powerlaw out-degree graph. ");
-    std::string saveprefix;
+    std::string saveprefix = "";
     clopts.attach_option("saveprefix", saveprefix,
                          "If set, will save the resultant pagerank to a "
                          "sequence of files with prefix saveprefix");
@@ -240,25 +91,86 @@ int main(int argc, char **argv) {
     dc.cout() << "#vertices:  " << graph.num_vertices() << std::endl
               << "#edges:     " << graph.num_edges() << std::endl;
 
+    // Running The Engine -------------------------------------------------------
+
+#ifndef GRAPH_ALGO
+    graphlab::omni_engine<sssp> engine(dc, graph, exec_type, clopts);
+
+    // Signal all the vertices in the source set
+    engine.signal(source, min_distance_type(0));
+    engine.start();
+#endif
+
 #ifdef GRAPH_ALGO
 //  use local graph info to init client-server
     int local_vCount = graph.get_local_graph().num_vertices();
     int local_eCount = graph.get_local_graph().num_edges();
 
-    auto clientVec = UtilClient<double, double>(local_vCount, local_eCount, 1);
-#endif
+    dc.cout() << "#local vertices:  " << local_vCount << std::endl
+              << "#local edges:     " << local_eCount << std::endl;
 
-    // Running The Engine -------------------------------------------------------
-    graphlab::omni_engine<sssp> engine(dc, graph, exec_type, clopts);
+    std::vector<Vertex> vSet;
+    std::vector<Edge> eSet;
+    std::vector<double> vValues;
+    bool filteredV[local_vCount];
+    int timestamp[local_vCount];
+    int initVSet = 1;
 
+    vSet.resize(local_vCount);
+    eSet.resize(local_eCount);
+    vValues.resize(local_vCount);
 
+    //init vSet
+    vSet.at(source).initVIndex = source;
+    graphlab::graphlab_to_algo_vertex_set<vertex_data, edge_data>(vSet, local_vCount, graph);
 
-    // Signal all the vertices in the source set
-    for (size_t i = 0; i < sources.size(); ++i) {
-        engine.signal(sources[i], min_distance_type(0));
+    //init vValuesSet
+    for (int i = 0; i < local_vCount; i++) {
+        vValues.at(i) = std::numeric_limits<distance_type>::max();
     }
 
+    //init eSet
+    for (int i = 0; i < local_eCount; i++) {
+        eSet.at(i).src = graph.get_local_graph().get_edge_source(i);
+        eSet.at(i).dst = graph.get_local_graph().get_edge_target(i);
+        eSet.at(i).weight = graph.get_local_graph().edge_data(i).dist;
+    }
+
+    //connect client
+    auto client = UtilClient<double, double>(local_vCount, local_eCount, 1);
+    int chk = 0;
+    chk = client.connect();
+    if (chk == -1) {
+        std::cout << "Cannot establish the connection with server correctly" << std::endl;
+    }
+
+    chk = client.transfer(&vValues[0], &vSet[0], &eSet[0], &initVSet, filteredV, timestamp);
+    if (chk == -1) {
+        std::cout << "Parameter illegal" << std::endl;
+    }
+
+    //message init
+    for (int i = 0; i < local_vCount; i++) {
+        client.mValues[i] = INVALID_MASSAGE;
+    }
+    if (graph.is_master(source)) {
+        auto local_vid = graph.vertex(source).local_id();
+        client.mValues[local_vid] = 0;
+    }
+
+    std::cout << "connect successful" << std::endl;
+
+    graphlab::synchronous_engine_algo<sssp<double, double>> engine(dc, graph, clopts);
+
+    sssp_to_gas<double, double, min_distance_type> sssp_gas(&client);
+    engine.get_vertex_program().set_sssp_to_gas_ptr(&sssp_gas);
+
     engine.start();
+
+    client.disconnect();
+    client.shutdown();
+#endif
+
     const float runtime = engine.elapsed_seconds();
     dc.cout() << "Finished Running engine in " << runtime
               << " seconds." << std::endl;

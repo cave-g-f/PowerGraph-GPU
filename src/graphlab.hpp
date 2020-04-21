@@ -40,6 +40,10 @@
 #include <graphlab/rpc/rpc_includes.hpp>
 #include <graphlab/ui/metrics_server.hpp>
 
+#ifdef GRAPH_ALGO
+#include <graphlab/graph_algo/graph_algo_includes.hpp>
+#endif
+
 
 #endif
 
