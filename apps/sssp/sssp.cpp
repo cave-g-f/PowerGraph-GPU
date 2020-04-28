@@ -107,14 +107,14 @@ int main(int argc, char **argv) {
     std::vector<double> vValues;
     bool filteredV[local_vCount];
     int timestamp[local_vCount];
-    int initVSet = 1;
+    int initVSet = graph.local_vid(source);
 
     vSet.resize(local_vCount);
     eSet.resize(local_eCount);
     vValues.resize(local_vCount);
 
     //init vSet
-    vSet.at(source).initVIndex = source;
+    vSet.at(graph.local_vid(source)).initVIndex = 0;
     for (int i = 0; i < local_vCount; i++) {
         vSet.at(i).outDegree = graph.l_vertex(i).num_out_edges();
         vSet.at(i).inDegree = graph.l_vertex(i).num_in_edges();
