@@ -5,7 +5,6 @@
 #ifndef GRAPHLAB_GRAPH_ALGO_INCLUDES_H
 #define GRAPHLAB_GRAPH_ALGO_INCLUDES_H
 
-#include <graphlab/graph_algo/graph_algo_array_convert.hpp>
-#include <graphlab/graph_algo/graph_algo_connect_gas.hpp>
+#include <graphlab/graph_algo/graph_algo_connect_gas.h>
 
 #endif //GRAPHLAB_GRAPH_ALGO_INCLUDES_H

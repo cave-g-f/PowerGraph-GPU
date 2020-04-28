@@ -2,7 +2,7 @@
 // Created by kdy on 2020/4/20.
 //
 
-#include <graphlab/graph_algo/graph_algo_connect_gas.hpp>
+#include <graphlab/graph_algo/graph_algo_connect_gas.cpp>
 
 #include "../../../apps/sssp/sssp.h"
 

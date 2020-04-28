@@ -1,14 +1,6 @@
 //created by cave-g-f 2020/4/2
 
 #include "sssp.h"
-#include "sssp_to_gas.h"
-
-#ifdef GRAPH_ALGO
-
-#include "../../Graph_Algo/srv/UtilClient.h"
-
-#endif
-
 
 /**
  * \brief Use directed or undireced edges.
@@ -36,7 +28,8 @@ bool line_parser(graph_type &graph, const std::string &filename, const std::stri
 struct shortest_path_writer {
     std::string save_vertex(const graph_type::vertex_type &vtx) {
         std::stringstream strm;
-        strm << vtx.id() << "\t" << vtx.data().dist << "\n";
+
+        strm << vtx.id() << "\t" << vtx.data() << "\n";
         return strm.str();
     }
 
@@ -122,11 +115,15 @@ int main(int argc, char **argv) {
 
     //init vSet
     vSet.at(source).initVIndex = source;
-    graphlab::graphlab_to_algo_vertex_set<vertex_data, edge_data>(vSet, local_vCount, graph);
+    for (int i = 0; i < local_vCount; i++) {
+        vSet.at(i).outDegree = graph.l_vertex(i).num_out_edges();
+        vSet.at(i).inDegree = graph.l_vertex(i).num_in_edges();
+        vSet.at(i).isMaster = graph.l_is_master(i);
+    }
 
     //init vValuesSet
     for (int i = 0; i < local_vCount; i++) {
-        vValues.at(i) = std::numeric_limits<distance_type>::max();
+        vValues.at(i) = INT32_MAX  >> 1;
     }
 
     //init eSet
@@ -155,17 +152,25 @@ int main(int argc, char **argv) {
     }
     if (graph.is_master(source)) {
         auto local_vid = graph.vertex(source).local_id();
+        std::cout << "local_vid:" << local_vid << std::endl;
         client.mValues[local_vid] = 0;
     }
 
     std::cout << "connect successful" << std::endl;
 
-    graphlab::synchronous_engine_algo<sssp<double, double>> engine(dc, graph, clopts);
+    //engine start
+    graphlab::synchronous_engine_algo<sssp> engine(dc, graph, clopts);
 
-    sssp_to_gas<double, double, min_distance_type> sssp_gas(&client);
-    engine.get_vertex_program().set_sssp_to_gas_ptr(&sssp_gas);
+    engine.get_vertex_program().set_algo_client_ptr(&client);
+    engine.get_vertex_program().set_local_vertex_num(local_vCount);
 
     engine.start();
+
+    //copy vertex value back to vertex data
+    for(int i = 0; i < local_vCount; i++)
+    {
+        graph.l_vertex(i).data() = client.vValues[i];
+    }
 
     client.disconnect();
     client.shutdown();

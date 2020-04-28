@@ -354,7 +354,7 @@ namespace graphlab {
         synchronous_engine_algo(distributed_control &dc, graph_type &graph,
                                 const graphlab_options &opts = graphlab_options());
 
-        vertex_program_type& get_vertex_program();
+        vertex_program_type &get_vertex_program();
 
 
         execution_status::status_enum start();
@@ -674,7 +674,7 @@ namespace graphlab {
 
 
     template<typename VertexProgram>
-    VertexProgram& synchronous_engine_algo<VertexProgram>::get_vertex_program() {
+    VertexProgram &synchronous_engine_algo<VertexProgram>::get_vertex_program() {
         return this->vertex_program;
     }
 
@@ -1009,10 +1009,17 @@ namespace graphlab {
 
             // Exchange Messages --------------------------------------------------
             // Exchange any messages in the local message vectors
-            // if (rmi.procid() == 0) std::cout << "Exchange messages..." << std::endl;
-            std::cout << "kk" << std::endl;
-            this->vertex_program.get_sssp_to_gas_ptr()->algo_to_gas_message_merge(nullptr, nullptr, nullptr);
-            rmi.barrier();
+//             if (rmi.procid() == 0) std::cout << "Exchange messages..." << std::endl;
+            /**
+             *  exchange message
+             *  1) copy algo message to power graph
+             *  2) sync message values
+             *  3) copy power graph message back to algo
+             *  4) calculate active vertex
+             */
+            this->vertex_program.algo_to_gas_message_convert(&messages[0], &has_message);
+            run_synchronous(&synchronous_engine_algo::exchange_messages);
+            this->vertex_program.gas_to_algo_message_convert(&messages[0], &has_message);
             /**
              * Post conditions:
              *   1) only master vertices have messages
@@ -1023,12 +1030,9 @@ namespace graphlab {
             // vertex programs with mirrors if gather is required
             //
 
-            // if (rmi.procid() == 0) std::cout << "Receive messages..." << std::endl;
+//             if (rmi.procid() == 0) std::cout << "Receive messages..." << std::endl;
             num_active_vertices = 0;
-            run_synchronous(&synchronous_engine_algo::receive_messages);
-            if (sched_allv) {
-                active_minorstep.fill();
-            }
+            run_synchronous( &synchronous_engine_algo::receive_messages );
             has_message.clear();
             /**
              * Post conditions:
@@ -1045,7 +1049,7 @@ namespace graphlab {
             // Check termination condition  ---------------------------------------
             size_t total_active_vertices = num_active_vertices;
             rmi.all_reduce(total_active_vertices);
-            if (rmi.procid() == 0 && print_this_round)
+            if (rmi.procid() == 0)
                 logstream(LOG_EMPH)
                     << "\tActive vertices: " << total_active_vertices << std::endl;
             if (total_active_vertices == 0) {
@@ -1058,11 +1062,11 @@ namespace graphlab {
             // Execute the gather operation for all vertices that are active
             // in this minor-step (active-minorstep bit set).
             // if (rmi.procid() == 0) std::cout << "Gathering..." << std::endl;
-            run_synchronous(&synchronous_engine_algo::execute_gathers);
+            //run_synchronous(&synchronous_engine_algo::execute_gathers);
             // Clear the minor step bit since only super-step vertices
             // (only master vertices are required to participate in the
             // apply step)
-            active_minorstep.clear(); // rmi.barrier();
+            //active_minorstep.clear(); // rmi.barrier();
             /**
              * Post conditions:
              *   1) gather_accum for all master vertices contains the
@@ -1073,23 +1077,25 @@ namespace graphlab {
 
             // Execute Apply Operations -------------------------------------------
             // Run the apply function on all active vertices
-            // if (rmi.procid() == 0) std::cout << "Applying..." << std::endl;
-            run_synchronous(&synchronous_engine_algo::execute_applys);
+//             if (rmi.procid() == 0) std::cout << "Applying..." << std::endl;
             /**
-             * Post conditions:
-             *   1) any changes to the vertex data have been synchronized
-             *      with all mirrors.
-             *   2) all gather accumulators have been cleared
-             *   3) If a vertex program is participating in the scatter
-             *      phase its minor-step bit has been set to active (both
-             *      masters and mirrors) and the vertex program has been
-             *      synchronized with the mirrors.
+             *  apply message
+             *  1) call MSGApply
+             *  2) sync data
              */
+            this->vertex_program.request_for_MSGApply();
+            run_synchronous(&synchronous_engine_algo::execute_applys);
 
 
             // Execute Scatter Operations -----------------------------------------
             // Execute each of the scatters on all minor-step active vertices.
-            run_synchronous(&synchronous_engine_algo::execute_scatters);
+//            if (rmi.procid() == 0) std::cout << "Scattering..." << std::endl;
+            /**
+             *  merge message
+             *  1) call MSGMerge
+             */
+            this->vertex_program.request_for_MSGMerge();
+
             /**
              * Post conditions:
              *   1) NONE
@@ -1157,19 +1163,19 @@ namespace graphlab {
             // initialize a word sized bitfield
             local_bitset.clear();
             local_bitset.initialize_from_mem(&lvid_bit_block, sizeof(size_t));
-                    foreach(size_t lvid_block_offset, local_bitset) {
-                            lvid_type lvid = lvid_block_start + lvid_block_offset;
-                            if (lvid >= graph.num_local_vertices()) break;
-                            // if the vertex is not local and has a message send the
-                            // message and clear the bit
-                            if (!graph.l_is_master(lvid)) {
-                                sync_message(lvid, thread_id);
-                                has_message.clear_bit(lvid);
-                                // clear the message to save memory
-                                messages[lvid] = message_type();
-                            }
-                            if (++vcount % TRY_RECV_MOD == 0) recv_messages();
-                        }
+            foreach(size_t lvid_block_offset, local_bitset) {
+                    lvid_type lvid = lvid_block_start + lvid_block_offset;
+                    if (lvid >= graph.num_local_vertices()) break;
+                    // if the vertex is not local and has a message send the
+                    // message and clear the bit
+                    if (!graph.l_is_master(lvid)) {
+                        sync_message(lvid, thread_id);
+                        has_message.clear_bit(lvid);
+                        // clear the message to save memory
+                        messages[lvid] = message_type();
+                    }
+                    if (++vcount % TRY_RECV_MOD == 0) recv_messages();
+                }
         } // end of loop over vertices to send messages
         message_exchange.partial_flush();
         // Finish sending and receiving all messages
@@ -1202,32 +1208,32 @@ namespace graphlab {
             local_bitset.clear();
             local_bitset.initialize_from_mem(&lvid_bit_block, sizeof(size_t));
 
-                    foreach(size_t lvid_block_offset, local_bitset) {
-                            lvid_type lvid = lvid_block_start + lvid_block_offset;
-                            if (lvid >= graph.num_local_vertices()) break;
+            foreach(size_t lvid_block_offset, local_bitset) {
+                    lvid_type lvid = lvid_block_start + lvid_block_offset;
+                    if (lvid >= graph.num_local_vertices()) break;
 
-                            // if this is the master of lvid and we have a message
-                            if (graph.l_is_master(lvid)) {
-                                // The vertex becomes active for this superstep
-                                active_superstep.set_bit(lvid);
-                                ++nactive_inc;
-                                // Pass the message to the vertex program
-                                vertex_type vertex = vertex_type(graph.l_vertex(lvid));
-                                vertex_programs[lvid].init(context, vertex, messages[lvid]);
-                                // clear the message to save memory
-                                messages[lvid] = message_type();
-                                if (sched_allv) continue;
-                                // Determine if the gather should be run
-                                const vertex_program_type &const_vprog = vertex_programs[lvid];
-                                const vertex_type const_vertex = vertex;
-                                if (const_vprog.gather_edges(context, const_vertex) !=
-                                    graphlab::NO_EDGES) {
-                                    active_minorstep.set_bit(lvid);
-                                    sync_vertex_program(lvid, thread_id);
-                                }
-                            }
-                            if (++vcount % TRY_RECV_MOD == 0) recv_vertex_programs();
+                    // if this is the master of lvid and we have a message
+                    if (graph.l_is_master(lvid)) {
+                        // The vertex becomes active for this superstep
+                        active_superstep.set_bit(lvid);
+                        ++nactive_inc;
+                        // Pass the message to the vertex program
+                        vertex_type vertex = vertex_type(graph.l_vertex(lvid));
+                        //vertex_programs[lvid].init(context, vertex, messages[lvid]);
+                        // clear the message to save memory
+                        messages[lvid] = message_type();
+                        if (sched_allv) continue;
+                        // Determine if the gather should be run
+                        const vertex_program_type &const_vprog = vertex_programs[lvid];
+                        const vertex_type const_vertex = vertex;
+                        if (const_vprog.gather_edges(context, const_vertex) !=
+                            graphlab::NO_EDGES) {
+                            active_minorstep.set_bit(lvid);
+                            sync_vertex_program(lvid, thread_id);
                         }
+                    }
+                    if (++vcount % TRY_RECV_MOD == 0) recv_vertex_programs();
+                }
         }
 
         num_active_vertices += nactive_inc;
@@ -1370,53 +1376,53 @@ namespace graphlab {
             // initialize a word sized bitfield
             local_bitset.clear();
             local_bitset.initialize_from_mem(&lvid_bit_block, sizeof(size_t));
-                    foreach(size_t lvid_block_offset, local_bitset) {
-                            lvid_type lvid = lvid_block_start + lvid_block_offset;
-                            if (lvid >= graph.num_local_vertices()) break;
+            foreach(size_t lvid_block_offset, local_bitset) {
+                    lvid_type lvid = lvid_block_start + lvid_block_offset;
+                    if (lvid >= graph.num_local_vertices()) break;
 
-                            // Only master vertices can be active in a super-step
-                            ASSERT_TRUE(graph.l_is_master(lvid));
-                            vertex_type vertex(graph.l_vertex(lvid));
-                            // Get the local accumulator.  Note that it is possible that
-                            // the gather_accum was not set during the gather.
-                            const gather_type &accum = gather_accum[lvid];
-                            INCREMENT_EVENT(EVENT_APPLIES, 1);
-                            vertex_programs[lvid].apply(context, vertex, accum);
-                            // record an apply as a completed task
-                            ++completed_applys;
-                            // Clear the accumulator to save some memory
-                            gather_accum[lvid] = gather_type();
-                            // synchronize the changed vertex data with all mirrors
-                            sync_vertex_data(lvid, thread_id);
-                            // determine if a scatter operation is needed
-                            const vertex_program_type &const_vprog = vertex_programs[lvid];
-                            const vertex_type const_vertex = vertex;
-                            if (const_vprog.scatter_edges(context, const_vertex) !=
-                                graphlab::NO_EDGES) {
-                                active_minorstep.set_bit(lvid);
-                                sync_vertex_program(lvid, thread_id);
-                            } else { // we are done so clear the vertex program
-                                vertex_programs[lvid] = vertex_program_type();
-                            }
-                            // try to receive vertex data
-                            if (++vcount % TRY_RECV_MOD == 0) {
-                                recv_vertex_programs();
-                                recv_vertex_data();
-                            }
-                        }
+                    // Only master vertices can be active in a super-step
+                    ASSERT_TRUE(graph.l_is_master(lvid));
+                    //vertex_type vertex(graph.l_vertex(lvid));
+                    // Get the local accumulator.  Note that it is possible that
+                    // the gather_accum was not set during the gather.
+                    //const gather_type &accum = gather_accum[lvid];
+                    //INCREMENT_EVENT(EVENT_APPLIES, 1);
+                    //vertex_programs[lvid].apply(context, vertex, accum);
+                    // record an apply as a completed task
+                    //++completed_applys;
+                    // Clear the accumulator to save some memory
+                    //gather_accum[lvid] = gather_type();
+                    // synchronize the changed vertex data with all mirrors
+                    sync_vertex_data(lvid, thread_id);
+                    // determine if a scatter operation is needed
+//                    const vertex_program_type &const_vprog = vertex_programs[lvid];
+//                    const vertex_type const_vertex = vertex;
+//                    if (const_vprog.scatter_edges(context, const_vertex) !=
+//                        graphlab::NO_EDGES) {
+//                        active_minorstep.set_bit(lvid);
+//                        sync_vertex_program(lvid, thread_id);
+//                    } else { // we are done so clear the vertex program
+//                        vertex_programs[lvid] = vertex_program_type();
+//                    }
+//                    // try to receive vertex data
+                    if (++vcount % TRY_RECV_MOD == 0) {
+                        //recv_vertex_programs();
+                        recv_vertex_data();
+                    }
+                }
         } // end of loop over vertices to run apply
 
-        per_thread_compute_time[thread_id] += ti.current_time();
-        vprog_exchange.partial_flush();
+//        per_thread_compute_time[thread_id] += ti.current_time();
+//        vprog_exchange.partial_flush();
         vdata_exchange.partial_flush();
         // Finish sending and receiving all changes due to apply operations
         thread_barrier.wait();
         if (thread_id == 0) {
-            vprog_exchange.flush();
+//            vprog_exchange.flush();
             vdata_exchange.flush();
         }
         thread_barrier.wait();
-        recv_vertex_programs();
+//        recv_vertex_programs();
         recv_vertex_data();
     } // end of execute_applys
 
@@ -1440,39 +1446,39 @@ namespace graphlab {
             // initialize a word sized bitfield
             local_bitset.clear();
             local_bitset.initialize_from_mem(&lvid_bit_block, sizeof(size_t));
-                    foreach(size_t lvid_block_offset, local_bitset) {
-                            lvid_type lvid = lvid_block_start + lvid_block_offset;
-                            if (lvid >= graph.num_local_vertices()) break;
+            foreach(size_t lvid_block_offset, local_bitset) {
+                    lvid_type lvid = lvid_block_start + lvid_block_offset;
+                    if (lvid >= graph.num_local_vertices()) break;
 
-                            const vertex_program_type &vprog = vertex_programs[lvid];
-                            local_vertex_type local_vertex = graph.l_vertex(lvid);
-                            const vertex_type vertex(local_vertex);
-                            const edge_dir_type scatter_dir = vprog.scatter_edges(context, vertex);
-                            size_t edges_touched = 0;
-                            // Loop over in edges
-                            if (scatter_dir == IN_EDGES || scatter_dir == ALL_EDGES) {
-                                        foreach(local_edge_type local_edge, local_vertex.in_edges()) {
-                                                edge_type edge(local_edge);
-                                                // elocks[local_edge.id()].lock();
-                                                vprog.scatter(context, vertex, edge);
-                                                // elocks[local_edge.id()].unlock();
-                                            }
-                                ++edges_touched;
-                            } // end of if in_edges/all_edges
-                            // Loop over out edges
-                            if (scatter_dir == OUT_EDGES || scatter_dir == ALL_EDGES) {
-                                        foreach(local_edge_type local_edge, local_vertex.out_edges()) {
-                                                edge_type edge(local_edge);
-                                                // elocks[local_edge.id()].lock();
-                                                vprog.scatter(context, vertex, edge);
-                                                // elocks[local_edge.id()].unlock();
-                                            }
-                                ++edges_touched;
-                            } // end of if out_edges/all_edges
-                            INCREMENT_EVENT(EVENT_SCATTERS, edges_touched);
-                            // Clear the vertex program
-                            vertex_programs[lvid] = vertex_program_type();
-                        } // end of if active on this minor step
+                    const vertex_program_type &vprog = vertex_programs[lvid];
+                    local_vertex_type local_vertex = graph.l_vertex(lvid);
+                    const vertex_type vertex(local_vertex);
+                    const edge_dir_type scatter_dir = vprog.scatter_edges(context, vertex);
+                    size_t edges_touched = 0;
+                    // Loop over in edges
+                    if (scatter_dir == IN_EDGES || scatter_dir == ALL_EDGES) {
+                        foreach(local_edge_type local_edge, local_vertex.in_edges()) {
+                                edge_type edge(local_edge);
+                                // elocks[local_edge.id()].lock();
+                                vprog.scatter(context, vertex, edge);
+                                // elocks[local_edge.id()].unlock();
+                            }
+                        ++edges_touched;
+                    } // end of if in_edges/all_edges
+                    // Loop over out edges
+                    if (scatter_dir == OUT_EDGES || scatter_dir == ALL_EDGES) {
+                        foreach(local_edge_type local_edge, local_vertex.out_edges()) {
+                                edge_type edge(local_edge);
+                                // elocks[local_edge.id()].lock();
+                                vprog.scatter(context, vertex, edge);
+                                // elocks[local_edge.id()].unlock();
+                            }
+                        ++edges_touched;
+                    } // end of if out_edges/all_edges
+                    INCREMENT_EVENT(EVENT_SCATTERS, edges_touched);
+                    // Clear the vertex program
+                    vertex_programs[lvid] = vertex_program_type();
+                } // end of if active on this minor step
         } // end of loop over vertices to complete scatter operation
 
         per_thread_compute_time[thread_id] += ti.current_time();
@@ -1519,9 +1525,10 @@ namespace graphlab {
         ASSERT_TRUE(graph.l_is_master(lvid));
         const vertex_id_type vid = graph.global_vid(lvid);
         local_vertex_type vertex = graph.l_vertex(lvid);
-                foreach(const procid_t &mirror, vertex.mirrors()) {
-                        vdata_exchange.send(mirror, std::make_pair(vid, vertex.data()));
-                    }
+        foreach(const procid_t &mirror, vertex.mirrors()) {
+                auto data = this->vertex_program.get_algo_client_ptr()->vValues[lvid];
+                vdata_exchange.send(mirror, std::make_pair(vid, data));
+            }
     } // end of sync_vertex_data
 
 
@@ -1535,11 +1542,11 @@ namespace graphlab {
         while (vdata_exchange.recv(recv_buffer)) {
             for (size_t i = 0; i < recv_buffer.size(); ++i) {
                 typename vdata_exchange_type::buffer_type &buffer = recv_buffer[i].buffer;
-                        foreach(const vid_vdata_pair_type &pair, buffer) {
-                                const lvid_type lvid = graph.local_vid(pair.first);
-                                ASSERT_FALSE(graph.l_is_master(lvid));
-                                graph.l_vertex(lvid).data() = pair.second;
-                            }
+                foreach(const vid_vdata_pair_type &pair, buffer) {
+                        const lvid_type lvid = graph.local_vid(pair.first);
+                        ASSERT_FALSE(graph.l_is_master(lvid));
+                        this->vertex_program.get_algo_client_ptr()->vValues[lvid] = pair.second;
+                    }
             }
         }
     } // end of recv vertex data

@@ -9,12 +9,6 @@
 #include <string>
 #include <fstream>
 
-#ifdef GRAPH_ALGO
-
-#include "sssp_to_gas.h"
-
-#endif
-
 #include <graphlab.hpp>
 
 /**
@@ -48,7 +42,11 @@ struct edge_data : graphlab::IS_POD_TYPE {
  * \brief The graph type encodes the distances between vertices and
  * edges
  */
+#ifdef GRAPH_ALGO
+typedef graphlab::distributed_graph<double, edge_data> graph_type;
+#else
 typedef graphlab::distributed_graph<vertex_data, edge_data> graph_type;
+#endif
 
 
 /**
@@ -78,31 +76,53 @@ struct min_distance_type : graphlab::IS_POD_TYPE {
 /**
  * \brief The single source shortest path vertex program.
  */
-#ifdef GRAPH_ALGO
-
-template<typename algo_value_type, typename algo_message_type>
-#endif
 class sssp :
         public graphlab::ivertex_program<graph_type,
                 graphlab::empty,
                 min_distance_type>,
+#ifdef GRAPH_ALGO
+        public graphlab::algo_to_gas<double, double, min_distance_type>,
+#endif
         public graphlab::IS_POD_TYPE {
     distance_type min_dist;
     bool changed;
-private:
-#ifdef GRAPH_ALGO
-    sssp_to_gas<algo_value_type, algo_message_type, min_distance_type> *algo_ptr = nullptr;
-#endif
 
 public:
 #ifdef GRAPH_ALGO
 
-    void set_sssp_to_gas_ptr(sssp_to_gas<algo_value_type, algo_message_type, min_distance_type> *ptr) {
-        this->algo_ptr = ptr;
+    void algo_to_gas_message_convert(min_distance_type *graphlab_mValues, graphlab::dense_bitset *has_message) {
+
+        if (this->get_algo_client_ptr() == nullptr || graphlab_mValues == nullptr || has_message == nullptr) {
+            return;
+        }
+
+        double *algo_mValues = this->get_algo_client_ptr()->mValues;
+
+        if (algo_mValues == nullptr) return;
+
+        for (int i = 0; i < this->get_local_vertex_num(); i++) {
+            if (algo_mValues[i] != INVALID_MASSAGE) {
+                graphlab_mValues[i] += min_distance_type(algo_mValues[i]);
+                has_message->set_bit(i);
+            }
+        }
     }
 
-    sssp_to_gas<algo_value_type, algo_message_type, min_distance_type> *get_sssp_to_gas_ptr() {
-        return this->algo_ptr;
+    void gas_to_algo_message_convert(min_distance_type *graphlab_mValues, graphlab::dense_bitset *has_message) {
+
+        if (this->get_algo_client_ptr() == nullptr || graphlab_mValues == nullptr || has_message == nullptr) {
+            return;
+        }
+
+        double *algo_mValues = this->get_algo_client_ptr()->mValues;
+
+        if (algo_mValues == nullptr) return;
+
+        for (int i = 0; i < this->get_local_vertex_num(); i++) {
+            if (has_message->get(i)) {
+                algo_mValues[i] = graphlab_mValues[i].dist;
+            }
+        }
     }
 
 #endif
@@ -126,11 +146,13 @@ public:
      */
     void apply(icontext_type &context, vertex_type &vertex,
                const graphlab::empty &empty) {
+#ifndef GRAPH_ALGO
         changed = false;
         if (vertex.data().dist > min_dist) {
             changed = true;
             vertex.data().dist = min_dist;
         }
+#endif
     }
 
     /**
@@ -148,12 +170,14 @@ public:
      */
     void scatter(icontext_type &context, const vertex_type &vertex,
                  edge_type &edge) const {
+#ifndef GRAPH_ALGO
         const vertex_type other = get_other_vertex(edge, vertex);
         distance_type newd = vertex.data().dist + edge.data().dist;
         if (other.data().dist > newd) {
             const min_distance_type msg(newd);
             context.signal(other, msg);
         }
+#endif
     } // end of scatter
 
 }; // end of shortest path vertex program
