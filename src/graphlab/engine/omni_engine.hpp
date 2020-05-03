@@ -202,12 +202,6 @@ namespace graphlab {
                 logstream(LOG_INFO) << "Using the Asynchronous engine." << std::endl;
                 engine_ptr = new async_consistent_engine_type(dc, graph, new_options);
             }
-#ifdef GRAPH_ALGO
-            else if (engine_type == "algo") {
-                logstream(LOG_INFO) << "Using the Synchronous Algo engine." << std::endl;
-                engine_ptr = new synchronous_engine_algo_type(dc, graph, new_options);
-            }
-#endif
             else {
                 logstream(LOG_FATAL) << "Invalid engine type: " << engine_type << std::endl;
             }

@@ -1,5 +1,5 @@
 cd Graph_Algo
 sh autoBuild.sh
 cd ../
-cd release/apps/sssp
+cd release/apps
 make -j$procs

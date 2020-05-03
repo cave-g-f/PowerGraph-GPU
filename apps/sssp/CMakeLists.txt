@@ -1,8 +1,5 @@
 project(sssp_graph_algo)
 
-#power graph
-#add_graphlab_executable(label_propagation label_propagation.cpp)
-
 #graph algo
 add_executable(sssp_graph_algo
         sssp.cpp

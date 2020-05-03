@@ -9,7 +9,7 @@
 #include "../../../Graph_Algo/srv/UtilClient.h"
 
 namespace graphlab {
-    template<typename algo_value_type, typename algo_message_type, typename graphlab_message_type>
+    template<typename algo_value_type, typename algo_message_type, typename graphlab_value_type, typename graphlab_message_type>
     class algo_to_gas {
     public:
         UtilClient<algo_value_type, algo_message_type> *get_algo_client_ptr();
@@ -18,21 +18,23 @@ namespace graphlab {
         set_algo_client_ptr(UtilClient<algo_value_type, algo_message_type> *ptr);
 
         virtual void algo_to_gas_message_convert(graphlab_message_type *graphlab_mValues,
-                                                 graphlab::dense_bitset *has_message) = 0;
+                                                 graphlab::dense_bitset *has_message, int vertex_count,
+                                                 int edge_count) = 0;
 
         virtual void gas_to_algo_message_convert(graphlab_message_type *graphlab_mValues,
-                                                 graphlab::dense_bitset *has_message) = 0;
+                                                 graphlab::dense_bitset *has_message, int vertex_count,
+                                                 int edge_count) = 0;
+
+        virtual void algo_to_gas_value_convert(graphlab_value_type *graphlab_value, algo_value_type *algo_value) = 0;
+
+        virtual void gas_to_algo_value_convert(graphlab_value_type *graphlab_value, algo_value_type *algo_value) = 0;
+
 
         void request_for_MSGApply();
 
         void request_for_MSGMerge();
 
-        int get_local_vertex_num() const;
-
-        void set_local_vertex_num(int _local_vertex_num);
-
     private:
-        int local_vertex_num;
         UtilClient<algo_value_type, algo_message_type> *client_ptr = nullptr;
     };
 

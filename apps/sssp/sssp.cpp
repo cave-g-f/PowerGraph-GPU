@@ -8,7 +8,7 @@
 bool DIRECTED_SSSP = true;
 
 
-bool line_parser(graph_type &graph, const std::string &filename, const std::string &textline) {
+bool line_parser(sssp_graph_type &graph, const std::string &filename, const std::string &textline) {
     std::stringstream strm(textline);
     graphlab::vertex_id_type src_vid, dest_vid;
     float weight;
@@ -26,14 +26,14 @@ bool line_parser(graph_type &graph, const std::string &filename, const std::stri
  * used in graph.save("path/prefix", pagerank_writer()) to save the graph.
  */
 struct shortest_path_writer {
-    std::string save_vertex(const graph_type::vertex_type &vtx) {
+    std::string save_vertex(const sssp_graph_type::vertex_type &vtx) {
         std::stringstream strm;
 
         strm << vtx.id() << "\t" << vtx.data() << "\n";
         return strm.str();
     }
 
-    std::string save_edge(graph_type::edge_type e) { return ""; }
+    std::string save_edge(sssp_graph_type::edge_type e) { return ""; }
 }; // end of shortest_path_writer
 
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 
 
     // Build the graph ----------------------------------------------------------
-    graph_type graph(dc);
+    sssp_graph_type graph(dc);
     dc.cout() << "Loading graph using line parser" << std::endl;
     graph.load(graph_dir, line_parser);
     // must call finalize before querying the graph
@@ -162,7 +162,6 @@ int main(int argc, char **argv) {
     graphlab::synchronous_engine_algo<sssp> engine(dc, graph, clopts);
 
     engine.get_vertex_program().set_algo_client_ptr(&client);
-    engine.get_vertex_program().set_local_vertex_num(local_vCount);
 
     engine.start();
 

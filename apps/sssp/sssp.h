@@ -43,18 +43,18 @@ struct edge_data : graphlab::IS_POD_TYPE {
  * edges
  */
 #ifdef GRAPH_ALGO
-typedef graphlab::distributed_graph<double, edge_data> graph_type;
+typedef graphlab::distributed_graph<double, edge_data> sssp_graph_type;
 #else
-typedef graphlab::distributed_graph<vertex_data, edge_data> graph_type;
+typedef graphlab::distributed_graph<vertex_data, edge_data> sssp_graph_type;
 #endif
 
 
 /**
  * \brief Get the other vertex in the edge.
  */
-inline graph_type::vertex_type
-get_other_vertex(const graph_type::edge_type &edge,
-                 const graph_type::vertex_type &vertex) {
+inline sssp_graph_type::vertex_type
+get_other_vertex(const sssp_graph_type::edge_type &edge,
+                 const sssp_graph_type::vertex_type &vertex) {
     return vertex.id() == edge.source().id() ? edge.target() : edge.source();
 }
 
@@ -77,11 +77,11 @@ struct min_distance_type : graphlab::IS_POD_TYPE {
  * \brief The single source shortest path vertex program.
  */
 class sssp :
-        public graphlab::ivertex_program<graph_type,
+        public graphlab::ivertex_program<sssp_graph_type,
                 graphlab::empty,
                 min_distance_type>,
 #ifdef GRAPH_ALGO
-        public graphlab::algo_to_gas<double, double, min_distance_type>,
+        public graphlab::algo_to_gas<double, double, double, min_distance_type>,
 #endif
         public graphlab::IS_POD_TYPE {
     distance_type min_dist;
@@ -90,7 +90,8 @@ class sssp :
 public:
 #ifdef GRAPH_ALGO
 
-    void algo_to_gas_message_convert(min_distance_type *graphlab_mValues, graphlab::dense_bitset *has_message) {
+    void algo_to_gas_message_convert(min_distance_type *graphlab_mValues, graphlab::dense_bitset *has_message,
+                                     int vertex_count, int edge_count) override {
 
         if (this->get_algo_client_ptr() == nullptr || graphlab_mValues == nullptr || has_message == nullptr) {
             return;
@@ -100,7 +101,7 @@ public:
 
         if (algo_mValues == nullptr) return;
 
-        for (int i = 0; i < this->get_local_vertex_num(); i++) {
+        for (int i = 0; i < vertex_count; i++) {
             if (algo_mValues[i] != INVALID_MASSAGE) {
                 graphlab_mValues[i] += min_distance_type(algo_mValues[i]);
                 has_message->set_bit(i);
@@ -108,7 +109,8 @@ public:
         }
     }
 
-    void gas_to_algo_message_convert(min_distance_type *graphlab_mValues, graphlab::dense_bitset *has_message) {
+    void gas_to_algo_message_convert(min_distance_type *graphlab_mValues, graphlab::dense_bitset *has_message,
+                                     int vertex_count, int edge_count) override {
 
         if (this->get_algo_client_ptr() == nullptr || graphlab_mValues == nullptr || has_message == nullptr) {
             return;
@@ -118,11 +120,19 @@ public:
 
         if (algo_mValues == nullptr) return;
 
-        for (int i = 0; i < this->get_local_vertex_num(); i++) {
+        for (int i = 0; i < vertex_count; i++) {
             if (has_message->get(i)) {
                 algo_mValues[i] = graphlab_mValues[i].dist;
             }
         }
+    }
+
+    void algo_to_gas_value_convert(double *graphlab_value, double *algo_value) override {
+        *graphlab_value = *algo_value;
+    }
+
+    void gas_to_algo_value_convert(double *graphlab_value, double *algo_value) override{
+        *algo_value = *graphlab_value;
     }
 
 #endif
