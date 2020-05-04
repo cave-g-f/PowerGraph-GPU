@@ -993,7 +993,7 @@ namespace graphlab {
 
             bool print_this_round = (elapsed_seconds() - last_print) >= 5;
 
-            if (rmi.procid() == 0 && print_this_round) {
+            if (rmi.procid() == 0) {
                 logstream(LOG_EMPH)
                     << rmi.procid() << ": Starting iteration: " << iteration_counter
                     << std::endl;
@@ -1019,6 +1019,7 @@ namespace graphlab {
              */
             this->vertex_program.algo_to_gas_message_convert(&messages[0], &has_message, graph.num_vertices(),
                                                              graph.num_edges());
+            rmi.barrier();
             run_synchronous(&synchronous_engine_algo::exchange_messages);
             this->vertex_program.gas_to_algo_message_convert(&messages[0], &has_message, graph.num_vertices(),
                                                              graph.num_edges());
@@ -1086,6 +1087,7 @@ namespace graphlab {
              *  2) sync data
              */
             this->vertex_program.request_for_MSGApply();
+            rmi.barrier();
             run_synchronous(&synchronous_engine_algo::execute_applys);
 
 

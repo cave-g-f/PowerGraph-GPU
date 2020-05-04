@@ -93,11 +93,11 @@ public:
 
         if (algo_mValues == nullptr) return;
 
-        for(int i = 0; i < edge_count; i++)
+        for (int i = 0; i < edge_count; i++)
             algo_mValues[i].destVId = -1;
 
         for (int i = 0, j = 0; i < vertex_count; i++) {
-            if(has_message->get(i)){
+            if (has_message->get(i)) {
                 label_counter msg = graphlab_mValues[i];
                 int maxCount = 0;
 
@@ -117,7 +117,7 @@ public:
         *graphlab_value = algo_value->label;
     }
 
-    void gas_to_algo_value_convert(int *graphlab_value, LPA_Value *algo_value) override{
+    void gas_to_algo_value_convert(int *graphlab_value, LPA_Value *algo_value) override {
         algo_value->label = *graphlab_value;
     }
 

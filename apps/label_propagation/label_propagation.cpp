@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
         vValues[i].label = graph.global_vid(i);
     }
 
-    chk = client.transfer(&vValues[0], &vSet[0], &eSet[0], &initVSet, filteredV, timestamp);
+    chk = client.transfer(vValues, vSet, eSet, &initVSet, filteredV, timestamp);
     if (chk == -1) {
         std::cout << "Parameter illegal" << std::endl;
     }
