@@ -173,8 +173,6 @@ namespace graphlab {
             edge_id_type _eid;
         };
 
-#ifdef GRAPH_ALGO
-
         class edge_list {
         public:
             void add_edge(int src, int dest, edge_data_type data) {
@@ -190,8 +188,6 @@ namespace graphlab {
 
         edge_list e_list;
 
-#endif
-
     public:
 
         // CONSTRUCTORS ============================================================>
@@ -205,7 +201,6 @@ namespace graphlab {
                 finalized(false) {}
 
         // METHODS =================================================================>
-#ifdef GRAPH_ALGO
 
         int get_edge_source(size_t edge_id) {
             return e_list.src.at(edge_id);
@@ -214,8 +209,6 @@ namespace graphlab {
         int get_edge_target(size_t edge_id) {
             return e_list.dest.at(edge_id);
         }
-
-#endif
 
         static bool is_dynamic() {
             return false;
@@ -398,9 +391,7 @@ namespace graphlab {
             // Add the edge to the set of edge data (this copies the edata)
             edge_buffer.add_edge(source, target, edata);
 
-#ifdef GRAPH_ALGO
             e_list.add_edge(source, target, edata);
-#endif
 
             // This is not the final edge_id, so we always return 0.
             return 0;

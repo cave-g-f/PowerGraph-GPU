@@ -75,10 +75,10 @@ int main(int argc, char **argv) {
 #ifndef GRAPH_ALGO
     graphlab::omni_engine<labelpropagation> engine(dc, graph, execution_type, clopts);
 
-    for (int i = 0; i < graph.num_local_vertices(); i++) {
+    for (int i = 0; i < graph.num_vertices(); i++) {
         label_counter msg;
-        msg.label_count[graph.global_vid(i)] = 1;
-        engine.signal(graph.global_vid(i), msg);
+        msg.label_count[i] = 1;
+        engine.signal(i, msg);
     }
     engine.start();
 #endif
