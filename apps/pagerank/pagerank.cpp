@@ -20,7 +20,7 @@ bool line_parser(pagerank_graph_type &graph, const std::string &filename, const 
 struct pagerank_writer {
     std::string save_vertex(pagerank_graph_type::vertex_type v) {
         std::stringstream strm;
-        strm << v.id() << "\t" <<v.data().rank << "\n";
+        strm << v.id() << "\t" << v.data().rank << "\n";
         return strm.str();
     }
 
@@ -73,91 +73,96 @@ int main(int argc, char **argv) {
 
     // Running The Engine -------------------------------------------------------
 
-#if 1
+#ifndef GRAPH_ALGO
     graphlab::omni_engine<pagerank> engine(dc, graph, exec_type, clopts);
 
     for (int i = 0; i < graph.num_vertices(); i++) {
-        engine.signal(i, 0.15);
+        engine.signal(i, RESET_PROB);
     }
 
     engine.start();
 #endif
 
-#if 0
+#ifdef GRAPH_ALGO
     //  use local graph info to init client-server
-        int local_vCount = graph.get_local_graph().num_vertices();
-        int local_eCount = graph.get_local_graph().num_edges();
+    int local_vCount = graph.get_local_graph().num_vertices();
+    int local_eCount = graph.get_local_graph().num_edges();
 
-        dc.cout() << "#local vertices:  " << local_vCount << std::endl
-                  << "#local edges:     " << local_eCount << std::endl;
+    dc.cout() << "#local vertices:  " << local_vCount << std::endl
+              << "#local edges:     " << local_eCount << std::endl;
 
-        std::vector<Vertex> vSet;
-        std::vector<Edge> eSet;
-        std::vector<double> vValues;
-        bool filteredV[local_vCount];
-        int timestamp[local_vCount];
-        int initVSet = -1;
+    std::vector<Vertex> vSet;
+    std::vector<Edge> eSet;
+    std::vector<std::pair<double, double>> vValues;
+    bool filteredV[local_vCount];
+    int timestamp[local_vCount];
+    int initVSet = -1;
 
-        vSet.resize(local_vCount);
-        eSet.resize(local_eCount);
-        vValues.resize(local_vCount);
+    vSet.resize(local_vCount);
+    eSet.resize(local_eCount);
+    vValues.resize(local_vCount);
 
-        for (int i = 0; i < local_vCount; i++) {
-            for(auto edge : graph.)
+    for (int i = 0; i < local_vCount; i++) {
+        vSet.at(i).outDegree = graph.l_vertex(i).global_num_out_edges();
+        vSet.at(i).inDegree = graph.l_vertex(i).global_num_in_edges();
+        vSet.at(i).isMaster = graph.l_is_master(i);
+    }
+
+    //init vValuesSet
+    for (int i = 0; i < local_vCount; i++) {
+        vValues.at(i).first = 0;
+        vValues.at(i).second = 0;
+    }
+
+    //init eSet
+    for (int i = 0; i < local_eCount; i++) {
+        eSet.at(i).src = graph.get_local_graph().get_edge_source(i);
+        eSet.at(i).dst = graph.get_local_graph().get_edge_target(i);
+        eSet.at(i).weight = 1.0 / vSet[eSet.at(i).src].outDegree;
+    }
+
+    //connect client
+    auto client = UtilClient<std::pair<double, double>, PRA_MSG>(local_vCount, local_eCount, 1);
+    int chk = 0;
+    chk = client.connect();
+    if (chk == -1) {
+        std::cout << "Cannot establish the connection with server correctly" << std::endl;
+    }
+
+    chk = client.transfer(&vValues[0], &vSet[0], &eSet[0], &initVSet, filteredV, timestamp);
+    if (chk == -1) {
+        std::cout << "Parameter illegal" << std::endl;
+    }
+
+    //message init
+    for (int i = 0; i < local_vCount; i++) {
+        client.mValues[i].destVId = -1;
+        client.mValues[i].rank = 0;
+    }
+    for (int i = 0; i < graph.num_vertices(); i++) {
+        if (graph.is_master(i)) {
+            auto local_vid = graph.vertex(i).local_id();
+            client.mValues[local_vid].destVId = i;
+            client.mValues[local_vid].rank = RESET_PROB;
         }
+    }
 
-        //init vValuesSet
-        for (int i = 0; i < local_vCount; i++) {
-            vValues.at(i) = INT32_MAX  >> 1;
-        }
+    std::cout << "connect successful" << std::endl;
 
-        //init eSet
-        for (int i = 0; i < local_eCount; i++) {
-            eSet.at(i).src = graph.get_local_graph().get_edge_source(i);
-            eSet.at(i).dst = graph.get_local_graph().get_edge_target(i);
-            eSet.at(i).weight = graph.get_local_graph().edge_data(i).dist;
-        }
+    //engine start
+    graphlab::synchronous_engine_algo<pagerank> engine(dc, graph, clopts);
 
-        //connect client
-        auto client = UtilClient<double, double>(local_vCount, local_eCount, 1);
-        int chk = 0;
-        chk = client.connect();
-        if (chk == -1) {
-            std::cout << "Cannot establish the connection with server correctly" << std::endl;
-        }
+    engine.get_vertex_program().set_algo_client_ptr(&client);
 
-        chk = client.transfer(&vValues[0], &vSet[0], &eSet[0], &initVSet, filteredV, timestamp);
-        if (chk == -1) {
-            std::cout << "Parameter illegal" << std::endl;
-        }
+    engine.start();
 
-        //message init
-        for (int i = 0; i < local_vCount; i++) {
-            client.mValues[i] = INVALID_MASSAGE;
-        }
-        if (graph.is_master(source)) {
-            auto local_vid = graph.vertex(source).local_id();
-            std::cout << "local_vid:" << local_vid << std::endl;
-            client.mValues[local_vid] = 0;
-        }
+    //copy vertex value back to vertex data
+    for (int i = 0; i < local_vCount; i++) {
+        graph.l_vertex(i).data().rank = client.vValues[i].first;
+    }
 
-        std::cout << "connect successful" << std::endl;
-
-        //engine start
-        graphlab::synchronous_engine_algo<sssp> engine(dc, graph, clopts);
-
-        engine.get_vertex_program().set_algo_client_ptr(&client);
-
-        engine.start();
-
-        //copy vertex value back to vertex data
-        for(int i = 0; i < local_vCount; i++)
-        {
-            graph.l_vertex(i).data() = client.vValues[i];
-        }
-
-        client.disconnect();
-        client.shutdown();
+    client.disconnect();
+    client.shutdown();
 #endif
 
     const float runtime = engine.elapsed_seconds();

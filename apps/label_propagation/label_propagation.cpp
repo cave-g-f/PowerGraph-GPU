@@ -102,8 +102,8 @@ int main(int argc, char **argv) {
 
     //init vSet
     for (int i = 0; i < local_vCount; i++) {
-        vSet[i].outDegree = graph.l_vertex(i).num_out_edges();
-        vSet[i].inDegree = graph.l_vertex(i).num_in_edges();
+        vSet[i].outDegree = graph.l_vertex(i).global_num_out_edges();
+        vSet[i].inDegree = graph.l_vertex(i).global_num_in_edges();
         vSet[i].isMaster = graph.l_is_master(i);
     }
 

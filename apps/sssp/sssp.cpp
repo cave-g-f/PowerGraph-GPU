@@ -116,8 +116,8 @@ int main(int argc, char **argv) {
     //init vSet
     vSet.at(graph.local_vid(source)).initVIndex = 0;
     for (int i = 0; i < local_vCount; i++) {
-        vSet.at(i).outDegree = graph.l_vertex(i).num_out_edges();
-        vSet.at(i).inDegree = graph.l_vertex(i).num_in_edges();
+        vSet.at(i).outDegree = graph.l_vertex(i).global_num_out_edges();
+        vSet.at(i).inDegree = graph.l_vertex(i).global_num_in_edges();
         vSet.at(i).isMaster = graph.l_is_master(i);
     }
 
