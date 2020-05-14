@@ -8,7 +8,6 @@ add_executable(sssp_graph_algo
 
 target_link_libraries(sssp_graph_algo
         graphlab
-        algo_to_gas
         srv_UtilClient)
 
 add_dependencies(sssp_graph_algo

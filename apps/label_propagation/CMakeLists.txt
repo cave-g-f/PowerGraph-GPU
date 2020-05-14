@@ -7,7 +7,6 @@ add_executable(lpa_graph_algo
 
 target_link_libraries(lpa_graph_algo
         graphlab
-        algo_to_gas
         srv_UtilClient)
 
 add_dependencies(lpa_graph_algo
