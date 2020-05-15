@@ -210,6 +210,10 @@ namespace graphlab {
             return e_list.dest.at(edge_id);
         }
 
+        edge_data_type get_edge_data(size_t edge_id){
+            return e_list.data.at(edge_id);
+        }
+
         static bool is_dynamic() {
             return false;
         }

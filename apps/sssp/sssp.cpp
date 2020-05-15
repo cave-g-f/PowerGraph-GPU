@@ -17,7 +17,7 @@ bool line_parser(sssp_graph_type &graph, const std::string &filename, const std:
     strm >> dest_vid;
     strm >> weight;
 
-    graph.add_edge(src_vid, dest_vid);
+    graph.add_edge(src_vid, dest_vid, weight);
     return true;
 }
 
@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
             clopts("Single Source Shortest Path Algorithm.");
     std::string graph_dir;
     std::string exec_type = "algo";
+    int max_iterations = 0;
 
     int source;
 
@@ -67,11 +68,15 @@ int main(int argc, char **argv) {
                          "If set, will save the resultant pagerank to a "
                          "sequence of files with prefix saveprefix");
 
+    clopts.add_positional("max_iterations");
+    clopts.attach_option("max_iterations", max_iterations, "max_iterations of the sssp");
+
     if (!clopts.parse(argc, argv)) {
         dc.cout() << "Error in parsing command line arguments." << std::endl;
         return EXIT_FAILURE;
     }
 
+    if (max_iterations) clopts.get_engine_args().set_option("max_iterations", max_iterations);
 
     // Build the graph ----------------------------------------------------------
     sssp_graph_type graph(dc);
@@ -130,7 +135,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < local_eCount; i++) {
         eSet.at(i).src = graph.get_local_graph().get_edge_source(i);
         eSet.at(i).dst = graph.get_local_graph().get_edge_target(i);
-        eSet.at(i).weight = graph.get_local_graph().edge_data(i).dist;
+        eSet.at(i).weight = graph.get_local_graph().get_edge_data(i);
     }
 
     //connect client

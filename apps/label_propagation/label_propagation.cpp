@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < local_eCount; i++) {
         eSet[i].src = graph.get_local_graph().get_edge_source(i);
         eSet[i].dst = graph.get_local_graph().get_edge_target(i);
-        eSet[i].weight = graph.get_local_graph().edge_data(i);
+        eSet[i].weight = graph.get_local_graph().get_edge_data(i);
     }
 
     //connect client

@@ -27,7 +27,7 @@ struct vertex_data : graphlab::IS_POD_TYPE {
 }; // end of vertex data
 
 
-
+#ifndef GRAPH_ALGO
 /**
  * \brief The distance associated with the edge.
  */
@@ -36,6 +36,7 @@ struct edge_data : graphlab::IS_POD_TYPE {
 
     edge_data(distance_type dist = 1) : dist(dist) {}
 }; // end of edge data
+#endif
 
 
 /**
@@ -43,7 +44,7 @@ struct edge_data : graphlab::IS_POD_TYPE {
  * edges
  */
 #ifdef GRAPH_ALGO
-typedef graphlab::distributed_graph<double, edge_data> sssp_graph_type;
+typedef graphlab::distributed_graph<double, double> sssp_graph_type;
 #else
 typedef graphlab::distributed_graph<vertex_data, edge_data> sssp_graph_type;
 #endif

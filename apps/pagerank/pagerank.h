@@ -59,7 +59,7 @@ public:
 
         for (int i = 0; i < vertex_count; i++) {
             if (algo_mValues[i].destVId != -1) {
-                graphlab_mValues[i] = algo_mValues[i].rank;
+                graphlab_mValues[i] += algo_mValues[i].rank;
                 has_message->set_bit(i);
             }
         }
