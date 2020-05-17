@@ -2,4 +2,4 @@ cd Graph_Algo
 sh autoBuild.sh
 cd ../
 cd release/apps
-make -j$procs
+make -j2
