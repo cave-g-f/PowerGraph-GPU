@@ -1009,7 +1009,7 @@ namespace graphlab {
 
             // Exchange Messages --------------------------------------------------
             // Exchange any messages in the local message vectors
-             if (rmi.procid() == 0) std::cout << "Exchange messages..." << std::endl;
+            if (rmi.procid() == 0) std::cout << "Exchange messages..." << std::endl;
             /**
              *  exchange message
              *  1) copy algo message to power graph
@@ -1023,6 +1023,15 @@ namespace graphlab {
             run_synchronous(&synchronous_engine_algo::exchange_messages);
             this->vertex_program.gas_to_algo_message_convert(&messages[0], &has_message, graph.num_local_vertices(),
                                                              graph.num_local_edges());
+//            std::cout << "after exchange" << std::endl;
+//            if (rmi.procid() == 2)
+//                for (int i = 0; i < graph.num_local_vertices(); i++) {
+//                    if (has_message.get(i))
+//                        std::cout << graph.global_vid(i) << " "
+//                                  << graph.global_vid(this->vertex_program.get_algo_client_ptr()->mValues[i].destVId)
+//                                  << " " << this->vertex_program.get_algo_client_ptr()->mValues[i].label << std::endl;
+//                }
+
             /**
              * Post conditions:
              *   1) only master vertices have messages
@@ -1033,7 +1042,7 @@ namespace graphlab {
             // vertex programs with mirrors if gather is required
             //
 
-             if (rmi.procid() == 0) std::cout << "Receive messages..." << std::endl;
+            if (rmi.procid() == 0) std::cout << "Receive messages..." << std::endl;
             num_active_vertices = 0;
             run_synchronous(&synchronous_engine_algo::receive_messages);
             has_message.clear();
@@ -1080,15 +1089,41 @@ namespace graphlab {
 
             // Execute Apply Operations -------------------------------------------
             // Run the apply function on all active vertices
-             if (rmi.procid() == 0) std::cout << "Applying..." << std::endl;
+            if (rmi.procid() == 0) std::cout << "Applying..." << std::endl;
             /**
              *  apply message
              *  1) call MSGApply
              *  2) sync data
              */
+
+//            std::cout << "before apply" << std::endl;
+//            if (rmi.procid() == 2)
+//                for (int i = 0; i < graph.num_local_vertices(); i++) {
+//                    if (this->vertex_program.get_algo_client_ptr()->mValues[i].destVId != -1)
+//                        std::cout << graph.global_vid(i) << " "
+//                                  << graph.global_vid(this->vertex_program.get_algo_client_ptr()->mValues[i].destVId)
+//                                  << " " << this->vertex_program.get_algo_client_ptr()->mValues[i].label << std::endl;
+//                }
+//            rmi.barrier();
             this->vertex_program.request_for_MSGApply();
+//            if (rmi.procid() == 2)
+//                for (int i = 0; i < graph.num_local_vertices(); i++) {
+//                    std::cout << graph.global_vid(i) << " "
+//                              << this->vertex_program.get_algo_client_ptr()->vValues[i].label
+//                              << std::endl;
+//                }
+
             rmi.barrier();
             run_synchronous(&synchronous_engine_algo::execute_applys);
+//            std::cout << "after exchange" << std::endl;
+//            if (rmi.procid() == 2)
+//                for (int i = 0; i < graph.num_local_vertices(); i++) {
+//                    std::cout << graph.global_vid(i) << " "
+//                              << this->vertex_program.get_algo_client_ptr()->vValues[i].label
+//                              << std::endl;
+//                }
+
+
 
 
             // Execute Scatter Operations -----------------------------------------
@@ -1397,7 +1432,7 @@ namespace graphlab {
                             // Clear the accumulator to save some memory
                             //gather_accum[lvid] = gather_type();
                             // synchronize the changed vertex data with all mirrors
-                            if(this->vertex_program.get_algo_client_ptr()->vSet[lvid].isActive)
+                            if (this->vertex_program.get_algo_client_ptr()->vSet[lvid].isActive)
                                 sync_vertex_data(lvid, thread_id);
                             // determine if a scatter operation is needed
 //                    const vertex_program_type &const_vprog = vertex_programs[lvid];

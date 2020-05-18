@@ -98,16 +98,15 @@ int main(int argc, char **argv) {
     LPA_Value *vValues = new LPA_Value [local_vCount];
     int initVSet = 0;
 
-    std::cout << "init vSet" << std::endl;
-
     //init vSet
     for (int i = 0; i < local_vCount; i++) {
         vSet[i].outDegree = graph.l_vertex(i).global_num_out_edges();
         vSet[i].inDegree = graph.l_vertex(i).global_num_in_edges();
         vSet[i].isMaster = graph.l_is_master(i);
-    }
 
-    std::cout << "init eSet" << std::endl;
+        //all vertex should be always active
+        vSet[i].isActive = true;
+    }
 
     //init eSet
     for (int i = 0; i < local_eCount; i++) {
@@ -123,8 +122,6 @@ int main(int argc, char **argv) {
     if (chk == -1) {
         std::cout << "Cannot establish the connection with server correctly" << std::endl;
     }
-
-    std::cout << "init vValues" << std::endl;
 
     //init vValues
     for(int i = 0; i < local_vCount; i++)
@@ -170,7 +167,7 @@ int main(int argc, char **argv) {
         graph.save(saveprefix, labelpropagation_writer(),
                    false,  // do not gzip
                    true,   //save vertices
-                   false,
+                   true,
                    1); // do not save edges
     }
 

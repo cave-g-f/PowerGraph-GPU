@@ -77,6 +77,7 @@ public:
 
             label_count.label_count[msg.label] = 1;
             graphlab_mValues[msg.destVId] += label_count;
+
             has_message->set_bit(msg.destVId);
         }
     }
@@ -93,9 +94,10 @@ public:
 
         if (algo_mValues == nullptr) return;
 
-        for (int i = 0; i < edge_count; i++)
+        for (int i = 0; i < vertex_count; i++)
             algo_mValues[i].destVId = -1;
 
+        //index j of algo_mvalues uesd for accelerate
         for (int i = 0, j = 0; i < vertex_count; i++) {
             if (has_message->get(i)) {
                 label_counter msg = graphlab_mValues[i];
