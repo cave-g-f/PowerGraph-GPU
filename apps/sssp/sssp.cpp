@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
     int local_vCount = graph.get_local_graph().num_vertices();
     int local_eCount = graph.get_local_graph().num_edges();
 
-    dc.cout() << "#local vertices:  " << local_vCount << std::endl
+    std::cout << "#local vertices:  " << local_vCount << std::endl
               << "#local edges:     " << local_eCount << std::endl;
 
     std::vector<Vertex> vSet;
@@ -112,14 +112,17 @@ int main(int argc, char **argv) {
     std::vector<double> vValues;
     bool filteredV[local_vCount];
     int timestamp[local_vCount];
-    int initVSet = graph.local_vid(source);
+    int initVSet = -1;
 
     vSet.resize(local_vCount);
     eSet.resize(local_eCount);
     vValues.resize(local_vCount);
 
     //init vSet
-    vSet.at(graph.local_vid(source)).initVIndex = 0;
+    if(graph.contains_vertex(source)){
+        initVSet = graph.local_vid(source);
+        vSet.at(graph.local_vid(source)).initVIndex = 0;
+    }
     for (int i = 0; i < local_vCount; i++) {
         vSet.at(i).outDegree = graph.l_vertex(i).global_num_out_edges();
         vSet.at(i).inDegree = graph.l_vertex(i).global_num_in_edges();

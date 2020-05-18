@@ -1009,7 +1009,7 @@ namespace graphlab {
 
             // Exchange Messages --------------------------------------------------
             // Exchange any messages in the local message vectors
-//             if (rmi.procid() == 0) std::cout << "Exchange messages..." << std::endl;
+             if (rmi.procid() == 0) std::cout << "Exchange messages..." << std::endl;
             /**
              *  exchange message
              *  1) copy algo message to power graph
@@ -1017,12 +1017,12 @@ namespace graphlab {
              *  3) copy power graph message back to algo
              *  4) calculate active vertex
              */
-            this->vertex_program.algo_to_gas_message_convert(&messages[0], &has_message, graph.num_vertices(),
-                                                             graph.num_edges());
+            this->vertex_program.algo_to_gas_message_convert(&messages[0], &has_message, graph.num_local_vertices(),
+                                                             graph.num_local_edges());
             rmi.barrier();
             run_synchronous(&synchronous_engine_algo::exchange_messages);
-            this->vertex_program.gas_to_algo_message_convert(&messages[0], &has_message, graph.num_vertices(),
-                                                             graph.num_edges());
+            this->vertex_program.gas_to_algo_message_convert(&messages[0], &has_message, graph.num_local_vertices(),
+                                                             graph.num_local_edges());
             /**
              * Post conditions:
              *   1) only master vertices have messages
@@ -1033,7 +1033,7 @@ namespace graphlab {
             // vertex programs with mirrors if gather is required
             //
 
-//             if (rmi.procid() == 0) std::cout << "Receive messages..." << std::endl;
+             if (rmi.procid() == 0) std::cout << "Receive messages..." << std::endl;
             num_active_vertices = 0;
             run_synchronous(&synchronous_engine_algo::receive_messages);
             has_message.clear();
@@ -1080,7 +1080,7 @@ namespace graphlab {
 
             // Execute Apply Operations -------------------------------------------
             // Run the apply function on all active vertices
-//             if (rmi.procid() == 0) std::cout << "Applying..." << std::endl;
+             if (rmi.procid() == 0) std::cout << "Applying..." << std::endl;
             /**
              *  apply message
              *  1) call MSGApply
@@ -1093,7 +1093,7 @@ namespace graphlab {
 
             // Execute Scatter Operations -----------------------------------------
             // Execute each of the scatters on all minor-step active vertices.
-//            if (rmi.procid() == 0) std::cout << "Scattering..." << std::endl;
+            if (rmi.procid() == 0) std::cout << "Scattering..." << std::endl;
             /**
              *  merge message
              *  1) call MSGMerge
@@ -1397,7 +1397,8 @@ namespace graphlab {
                             // Clear the accumulator to save some memory
                             //gather_accum[lvid] = gather_type();
                             // synchronize the changed vertex data with all mirrors
-                            sync_vertex_data(lvid, thread_id);
+                            if(this->vertex_program.get_algo_client_ptr()->vSet[lvid].isActive)
+                                sync_vertex_data(lvid, thread_id);
                             // determine if a scatter operation is needed
 //                    const vertex_program_type &const_vprog = vertex_programs[lvid];
 //                    const vertex_type const_vertex = vertex;
@@ -1552,6 +1553,8 @@ namespace graphlab {
                                 const lvid_type lvid = graph.local_vid(pair.first);
                                 ASSERT_FALSE(graph.l_is_master(lvid));
                                 vertex_data_type graphlab_value = pair.second;
+                                //sync active flag
+                                this->vertex_program.get_algo_client_ptr()->vSet[lvid].isActive = true;
                                 this->vertex_program.gas_to_algo_value_convert(&graphlab_value,
                                                                                &(this->vertex_program.get_algo_client_ptr()->vValues[lvid]));
                             }
