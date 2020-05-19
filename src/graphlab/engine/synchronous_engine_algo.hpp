@@ -1023,14 +1023,6 @@ namespace graphlab {
             run_synchronous(&synchronous_engine_algo::exchange_messages);
             this->vertex_program.gas_to_algo_message_convert(&messages[0], &has_message, graph.num_local_vertices(),
                                                              graph.num_local_edges());
-//            std::cout << "after exchange" << std::endl;
-//            if (rmi.procid() == 2)
-//                for (int i = 0; i < graph.num_local_vertices(); i++) {
-//                    if (has_message.get(i))
-//                        std::cout << graph.global_vid(i) << " "
-//                                  << graph.global_vid(this->vertex_program.get_algo_client_ptr()->mValues[i].destVId)
-//                                  << " " << this->vertex_program.get_algo_client_ptr()->mValues[i].label << std::endl;
-//                }
 
             /**
              * Post conditions:
@@ -1096,34 +1088,9 @@ namespace graphlab {
              *  2) sync data
              */
 
-//            std::cout << "before apply" << std::endl;
-//            if (rmi.procid() == 2)
-//                for (int i = 0; i < graph.num_local_vertices(); i++) {
-//                    if (this->vertex_program.get_algo_client_ptr()->mValues[i].destVId != -1)
-//                        std::cout << graph.global_vid(i) << " "
-//                                  << graph.global_vid(this->vertex_program.get_algo_client_ptr()->mValues[i].destVId)
-//                                  << " " << this->vertex_program.get_algo_client_ptr()->mValues[i].label << std::endl;
-//                }
-//            rmi.barrier();
             this->vertex_program.request_for_MSGApply();
-//            if (rmi.procid() == 2)
-//                for (int i = 0; i < graph.num_local_vertices(); i++) {
-//                    std::cout << graph.global_vid(i) << " "
-//                              << this->vertex_program.get_algo_client_ptr()->vValues[i].label
-//                              << std::endl;
-//                }
-
             rmi.barrier();
             run_synchronous(&synchronous_engine_algo::execute_applys);
-//            std::cout << "after exchange" << std::endl;
-//            if (rmi.procid() == 2)
-//                for (int i = 0; i < graph.num_local_vertices(); i++) {
-//                    std::cout << graph.global_vid(i) << " "
-//                              << this->vertex_program.get_algo_client_ptr()->vValues[i].label
-//                              << std::endl;
-//                }
-
-
 
 
             // Execute Scatter Operations -----------------------------------------

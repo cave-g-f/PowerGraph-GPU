@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < graph.num_vertices(); i++) {
         if (graph.is_master(i)) {
             auto local_vid = graph.vertex(i).local_id();
-            client.mValues[local_vid].destVId = i;
+            client.mValues[local_vid].destVId = local_vid;
             client.mValues[local_vid].rank = RESET_PROB;
         }
     }
