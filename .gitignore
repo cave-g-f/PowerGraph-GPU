@@ -28,3 +28,8 @@ tags
 *swp
 \.mchg\.mchg
 .ycm_extra_conf*
+
+.history
+.vscode
+bellmanford/
+connectedcomponent/
