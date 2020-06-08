@@ -94,23 +94,21 @@ public:
 
         if (algo_mValues == nullptr) return;
 
-        for (int i = 0; i < vertex_count; i++)
+        for (int i = 0; i < std::max(vertex_count, edge_count); i++)
             algo_mValues[i].destVId = -1;
 
-        //index j of algo_mvalues uesd for accelerate
-        for (int i = 0, j = 0; i < vertex_count; i++) {
+        for (int i = 0; i < vertex_count; i++) {
             if (has_message->get(i)) {
                 label_counter msg = graphlab_mValues[i];
                 int maxCount = 0;
 
-                algo_mValues[j].destVId = i;
+                algo_mValues[i].destVId = i;
                 for (auto iter : msg.label_count) {
                     if (iter.second >= maxCount) {
-                        algo_mValues[j].label = iter.first;
+                        algo_mValues[i].label = iter.first;
                         maxCount = iter.second;
                     }
                 }
-                j++;
             }
         }
     }
